@@ -16,8 +16,8 @@ from gans.wgangp.wgangp import Discriminator, Generator
 
 
 class Trainer(BaseTrainer):
-    def __init__(self, name='wgangp'):
-        super(Trainer, self).__init__(name=name)
+    def __init__(self, name='wgangp', config=config):
+        super(Trainer, self).__init__(name=name, config=config)
 
         self.classes = None
         self.dataloader = None
@@ -103,9 +103,6 @@ class Trainer(BaseTrainer):
             # do checkpointing
             torch.save(self.net_G.state_dict(), '%s/checkpoint/netG_epoch_%d.pth' % (config.OUT_PATH, epoch))
             torch.save(self.net_D.state_dict(), '%s/checkpoint/netD_epoch_%d.pth' % (config.OUT_PATH, epoch))
-
-    def get_config(self):
-        return config
 
     def compute_gradient_penalty(self, D, real_samples, fake_samples):
         """Calculates the gradient penalty loss for WGAN GP"""

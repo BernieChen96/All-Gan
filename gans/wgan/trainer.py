@@ -92,11 +92,8 @@ class Trainer(BaseTrainer):
         # 查看数据
         self.summary_embedding(self.dataset, self.classes)
 
-    def get_config(self):
-        return config
-
-    def __init__(self, name='wgan'):
-        super(Trainer, self).__init__(name=name)
+    def __init__(self, name='wgan', config=config):
+        super(Trainer, self).__init__(name=name, config=config)
 
         self.classes = None
         self.dataloader = None

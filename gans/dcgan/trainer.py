@@ -17,11 +17,8 @@ from gans.dcgan.dcgan import Generator, Discriminator
 
 class Trainer(BaseTrainer):
 
-    def get_config(self):
-        return config
-
-    def __init__(self, name='dcgan'):
-        super(Trainer, self).__init__(name=name)
+    def __init__(self, name='dcgan', config=config):
+        super(Trainer, self).__init__(name=name, config=config)
         self.classes = None
         self.dataloader = None
         self.dataset = None

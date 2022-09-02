@@ -17,13 +17,9 @@ from torch.backends import cudnn
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from base import get_root_path
-from util.ops import array_detail
 
 
 class BaseTrainer(ABC):
-    @abstractmethod
-    def get_config(self):
-        pass
 
     @abstractmethod
     def setup(self):
@@ -33,14 +29,8 @@ class BaseTrainer(ABC):
     def train(self):
         pass
 
-    def __init__(self, name):
-        self.config = self.get_config()
-        # 创建输出文件夹
-        try:
-            os.makedirs(self.config.OUT_PATH)
-        except OSError:
-            pass
-
+    def __init__(self, name, config):
+        self.config = config
         # 设置随机种子
         if self.config.MANUAL_SEED is None:
             self.config.MANUAL_SEED = random.randint(1, 10000)
@@ -50,10 +40,6 @@ class BaseTrainer(ABC):
 
         # Benchmark模式会提升计算速度，但是由于计算中有随机性，每次网络前馈结果略有差异
         cudnn.benchmark = True
-
-        # dataroot是否存在
-        if self.config.DATA_ROOT is None and str(self.config.DATASET).lower() != 'fake':
-            raise ValueError("`dataroot` parameter is required for dataset \"%s\"" % self.opt.dataset)
 
         self.name = name
         self.dataset_name = self.config.DATASET
@@ -94,7 +80,6 @@ class BaseTrainer(ABC):
     def init_summary(self):
         current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
         summary_dir = os.path.join(get_root_path(), 'gans/%s/runs/%s' % (self.name, self.dataset_name))
-        print(self.dataset_name)
         if not os.path.exists(summary_dir):
             os.makedirs(summary_dir)
         summary_writer = SummaryWriter(os.path.join(summary_dir, current_time))

@@ -42,8 +42,6 @@ N_GPU = 1
 NET_G = '/Users/cmm/Projects/PycharmProjects/projects/All-Gan/gans/cgan/checkpoint/netG_epoch_1.pth'
 # path to netD (to continue training)
 NET_D = '/Users/cmm/Projects/PycharmProjects/projects/All-Gan/gans/cgan/checkpoint/netD_epoch_1.pth'
-# folder to output images and model checkpoints
-OUT_PATH = '.'
 # manual seed
 MANUAL_SEED = 42
 # comma separated list of classes for the lsun data set

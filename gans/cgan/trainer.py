@@ -13,8 +13,8 @@ import config
 
 
 class Trainer(BaseTrainer):
-    def __init__(self, name='cgan'):
-        super(Trainer, self).__init__(name=name)
+    def __init__(self, name='cgan', config=config):
+        super(Trainer, self).__init__(name=name, config=config)
 
         self.dataset = None
         self.dataloader = None
@@ -66,9 +66,6 @@ class Trainer(BaseTrainer):
         self.summary_graph(self.net_D, (fake.detach(), self.fixed_labels))
         # 查看数据
         self.summary_embedding(self.dataset, self.classes)
-
-    def get_config(self):
-        return config
 
     def train(self):
         for epoch in range(config.N_EPOCH):

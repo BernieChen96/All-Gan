@@ -16,11 +16,8 @@ from torch.utils import data
 
 
 class Trainer(BaseTrainer):
-    def get_config(self):
-        return config
-
-    def __init__(self, name='gan'):
-        super(Trainer, self).__init__(name=name)
+    def __init__(self, name='gan', config=config):
+        super(Trainer, self).__init__(name=name, config=config)
         self.dataset = None
         self.dataloader = None
         self.classes = None
