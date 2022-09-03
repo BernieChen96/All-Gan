@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 
 from skimage import io as img
 from skimage import color
+from torch import nn
 
 from gans.singan.imresize import imresize
 
@@ -36,6 +37,8 @@ def np2torch(x, opt):
         x = x[:, :, None, None]
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
+    x = move_to_gpu(x)
+    x = x.type(torch.cuda.FloatTensor) if torch.cuda.is_available() else x.type(torch.FloatTensor)
     x = norm(x)
     return x
 
@@ -108,8 +111,13 @@ def move_to_cpu(t):
     return t
 
 
+def move_to_gpu(t):
+    if torch.cuda.is_available():
+        t = t.to(torch.device('cuda'))
+    return t
+
+
 def convert_image_np(inp):
-    print(inp[-1].shape)
     if inp.shape[1] == 3:
         inp = denorm(inp)
         inp = move_to_cpu(inp[-1, :, :, :])
@@ -129,3 +137,21 @@ def convert_image_np(inp):
 def denorm(x):
     out = (x + 1) / 2
     return out.clamp(0, 1)
+
+
+def generate_noise(size, num_samp=1, device='cuda', type='gaussian', scale=1):
+    if type == 'gaussian':
+        noise = torch.randn(num_samp, size[0], round(size[1] / scale), round(size[2] / scale), device=device)
+        noise = upsampling(noise, size[1], size[2])
+    if type == 'gaussian_mixture':
+        noise1 = torch.randn(num_samp, size[0], size[1], size[2], device=device) + 5
+        noise2 = torch.randn(num_samp, size[0], size[1], size[2], device=device)
+        noise = noise1 + noise2
+    if type == 'uniform':
+        noise = torch.randn(num_samp, size[0], size[1], size[2], device=device)
+    return noise
+
+
+def upsampling(im, sx, sy):
+    m = nn.Upsample(size=[round(sx), round(sy)], mode='bilinear', align_corners=True)
+    return m(im)
