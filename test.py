@@ -21,8 +21,8 @@ class TestGans(unittest.TestCase):
 
     def test_read_image(self):
         from skimage import io as img
-        from gans.singan.functions import np2torch, adjust_scales2image, post_config
-        from gans.singan.config import get_arguments
+        from gans.singan_bak.functions import np2torch, adjust_scales2image, post_config
+        from gans.singan_bak.config import get_arguments
         img_ = img.imread("F:\Projects\PythonProjects\DeepLearning\All-Gan\data\SOB_B_A-14-22549AB-40-001.png")
         print(img_.shape)
         parser = get_arguments()

@@ -2,7 +2,7 @@
 # @Time    : 2022/8/23 20:50
 # @Author  : CMM
 # @Site    : 
-# @File    : ops.py
+# @File    : debug.py
 # @Software: PyCharm
 import os
 

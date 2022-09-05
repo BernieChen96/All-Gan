@@ -19,50 +19,52 @@ def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv2d') != -1:
         torch.nn.init.normal_(m.weight, 0.0, 0.02)
+        # print(m.weight.dtype)
     elif classname.find('Norm') != -1:
         torch.nn.init.normal_(m.weight, 1.0, 0.02)
         torch.nn.init.zeros_(m.bias)
 
 
 class Generator(nn.Module):
-    def __init__(self, num_filters, num_layer=5, channels=3, kernel_size=3, padding=0, stride=1):
+    def __init__(self, opt):
         super(Generator, self).__init__()
-        self.head = ConvBlock(channels, num_filters, kernel_size, padding, stride)
-        self.padding = nn.ZeroPad2d(int(((kernel_size - 1) * num_layer) / 2))  # 5
+        N = opt.nfc
+        self.head = ConvBlock(opt.nc_im, N, opt.ker_size, opt.padd_size,
+                              1)  # GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
         self.body = nn.Sequential()
-        for i in range(num_layer - 2):
-            block = ConvBlock(num_filters, num_filters, kernel_size, padding, stride)
+        for i in range(opt.num_layer - 2):
+            N = int(opt.nfc / pow(2, (i + 1)))
+            block = ConvBlock(max(2 * N, opt.min_nfc), max(N, opt.min_nfc), opt.ker_size, opt.padd_size, 1)
             self.body.add_module('block%d' % (i + 1), block)
         self.tail = nn.Sequential(
-            nn.Conv2d(num_filters, channels, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.Conv2d(max(N, opt.min_nfc), opt.nc_im, kernel_size=opt.ker_size, stride=1, padding=opt.padd_size),
             nn.Tanh()
         )
 
-    def forward(self, noise, prev):
-        prev_pad = self.padding(prev)
-        noise_pad = self.padding(noise)
-        x = self.head(torch.add(prev_pad, noise_pad))
+    def forward(self, x, y):
+        x = self.head(x)
         x = self.body(x)
         x = self.tail(x)
-        return torch.add(x, prev)
+        ind = int((y.shape[2] - x.shape[2]) / 2)
+        y = y[:, :, ind:(y.shape[2] - ind), ind:(y.shape[3] - ind)]
+        return x + y
 
 
-class Discriminator(nn.Module):
-    def __init__(self, num_filters, num_layer=5, channels=3, kernel_size=3, padding=0, stride=1):
-        super(Discriminator, self).__init__()
-        self.head = ConvBlock(channels, num_filters, kernel_size, padding, stride)
+class WDiscriminator(nn.Module):
+    def __init__(self, opt):
+        super(WDiscriminator, self).__init__()
+        N = int(opt.nfc)
+        self.head = ConvBlock(opt.nc_im, N, opt.ker_size, opt.padd_size, 1)
         self.body = nn.Sequential()
-        for i in range(num_layer - 2):
-            block = ConvBlock(num_filters, num_filters, kernel_size, padding, stride)
+        for i in range(opt.num_layer - 2):
+            N = int(opt.nfc / pow(2, (i + 1)))
+            block = ConvBlock(max(2 * N, opt.min_nfc), max(N, opt.min_nfc), opt.ker_size, opt.padd_size, 1)
             self.body.add_module('block%d' % (i + 1), block)
-        self.tail = nn.Conv2d(num_filters, 1, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.tail = nn.Conv2d(max(N, opt.min_nfc), 1, kernel_size=opt.ker_size, stride=1, padding=opt.padd_size)
 
     def forward(self, x):
+        print(x.dtype)
         x = self.head(x)
         x = self.body(x)
         x = self.tail(x)
         return x
-
-
-print(Generator(32))
-print(Discriminator(32))

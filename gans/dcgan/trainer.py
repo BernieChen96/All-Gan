@@ -11,6 +11,8 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch import nn, optim
+
+from gans import functions
 from gans.base_trainer import BaseTrainer
 from gans.dcgan.dcgan import Generator, Discriminator
 
@@ -108,7 +110,7 @@ class Trainer(BaseTrainer):
                     # create grid of images
                     grid = torchvision.utils.make_grid(fake.detach())
                     # show images
-                    self.matplotlib_imshow(grid, one_channel=1)
+                    functions.matplotlib_imshow(grid, one_channel=1)
                     # write to tensorboard
                     self.writer.add_image('gen_images', grid, global_step=i)
 

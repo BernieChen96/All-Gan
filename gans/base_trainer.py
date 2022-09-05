@@ -8,15 +8,15 @@ import os
 from abc import abstractmethod, ABC
 import random
 from datetime import datetime
-import matplotlib.pyplot as plt
 import torchvision
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import numpy as np
 import torch
 from torch.backends import cudnn
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from base import get_root_path
+from gans import functions
 
 
 class BaseTrainer(ABC):
@@ -39,7 +39,8 @@ class BaseTrainer(ABC):
         torch.manual_seed(self.config.MANUAL_SEED)
 
         # Benchmark模式会提升计算速度，但是由于计算中有随机性，每次网络前馈结果略有差异
-        cudnn.benchmark = True
+        if torch.cuda.is_available():
+            cudnn.benchmark = True
 
         self.name = name
         self.dataset_name = self.config.DATASET
@@ -51,6 +52,11 @@ class BaseTrainer(ABC):
         print("当前使用 device：", self.device)
 
     def get_dataset(self, name):
+        """
+        获取自带数据集
+        :param name: 数据集名称
+        :return:
+        """
         dataset = None
         dataloader = None
         classes = None
@@ -85,23 +91,11 @@ class BaseTrainer(ABC):
         summary_writer = SummaryWriter(os.path.join(summary_dir, current_time))
         return summary_writer
 
-    def matplotlib_imshow(self, img, one_channel=False):
-        if one_channel:
-            img = img.mean(dim=0)
-        # [-1~1]=>[0,1]
-        img = img / 2 + 0.5  # unnormalize
-        npimg = img.cpu().numpy()
-        if one_channel:
-            plt.imshow(npimg, cmap="Greys")  # cmap='gray'
-        else:
-            plt.imshow(np.transpose(npimg, (1, 2, 0)))
-        plt.show()
-
     def summary_image(self, image, step, one_channel=False):
         # create grid of images
         grid = torchvision.utils.make_grid(image.detach())
         # show images
-        self.matplotlib_imshow(grid, one_channel=one_channel)
+        functions.matplotlib_imshow(grid, one_channel=one_channel)
         # write to tensorboard
         self.writer.add_image('gen_images', grid, global_step=step)
 

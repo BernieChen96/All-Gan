@@ -13,7 +13,7 @@ from skimage import io as img
 from skimage import color
 from torch import nn
 
-from gans.singan.imresize import imresize
+from gans.singan_bak.imresize import imresize
 
 
 def post_config(opt):
