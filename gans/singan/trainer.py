@@ -58,7 +58,6 @@ class Trainer(BaseTrainer):
             functions.matplotlib_imshow(real_imgs, one_channel=False, title='original real image')
         real_imgs = self._adjust_scales(real_imgs)
         self.reals = self._set_reals(real_imgs)  # create real pyramid
-        # self.noise = self._set_noises(self.reals)  # create noise pyramid
         print("图像初始化完毕......")
 
         # Initialize D and G
@@ -116,7 +115,6 @@ class Trainer(BaseTrainer):
                 print("测试模型......")
                 print("D(0): ", discriminator(prev_rec).shape)
                 print("G(0,0): ", generator(prev_rec, prev_rec).shape)
-                # functions.matplotlib_imshow(generator(prev_rec, self.noise[scale].to(self.device)).detach())
             for step in range(self.args.num_iters):
                 z_fixed, prev_rec, noise_amp, metrics = self.train_step(real_img, prev_rec, noise_amp, scale, step,
                                                                         discriminator, generator, d_optimizer,
@@ -307,26 +305,6 @@ class Trainer(BaseTrainer):
             reals.append(tmp_real)
 
         return reals
-
-    def _set_noises(self, reals):
-        noises = []
-
-        # loop over scales
-        for i in range(len(reals)):
-            noises.append(self._generate_noise(reals[i], repeat=(i == 0)))
-
-        return noises
-
-    def _generate_noise(self, tensor_like, repeat=False):
-        if not repeat:
-            noise = torch.randn(tensor_like.size()).to(tensor_like.device)
-        else:
-            noise = torch.randn((tensor_like.size(0), 1, tensor_like.size(2), tensor_like.size(3)))
-            noise = noise.repeat((1, 3, 1, 1)).to(tensor_like.device)
-        if self.debug:
-            functions.matplotlib_imshow(noise,
-                                        title=f'{noise.size(3)}*{noise.size(2)} noise')
-        return noise
 
 
 if __name__ == '__main__':
