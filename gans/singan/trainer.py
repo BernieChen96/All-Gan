@@ -134,7 +134,7 @@ class Trainer(BaseTrainer):
                     self.writer.add_scalar(f"{scale}th errG", metrics[1], step)
                     self.writer.add_scalar(f"{scale}th rec_loss", metrics[2], step)
 
-                if step % 999 == 0:
+                if step + 1 % 1000 == 0:
                     self._save_model(scale, step, generator, discriminator)
                 if jump:
                     break
