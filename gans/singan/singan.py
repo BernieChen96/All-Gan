@@ -38,7 +38,7 @@ class Generator(nn.Module):
             nn.Tanh()
         )
 
-    def forward(self, noise, prev):
+    def forward(self, prev, noise):
         prev_pad = self.padding(prev)
         noise_pad = self.padding(noise)
         x = self.head(torch.add(prev_pad, noise_pad))
@@ -62,7 +62,3 @@ class Discriminator(nn.Module):
         x = self.body(x)
         x = self.tail(x)
         return x
-
-
-print(Generator(32))
-print(Discriminator(32))

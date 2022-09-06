@@ -76,28 +76,37 @@ class BaseTrainer(ABC):
         return dataset, dataloader, classes
 
     def init_directory(self, *args):
-        root_path = os.path.join(get_root_path(), 'gans')
-        dir_path = os.path.join(root_path, self.name)
+        dir_path = self.get_dir_path()
         for i in args:
             create_path = os.path.join(dir_path, i)
             if not os.path.exists(create_path):
                 os.makedirs(create_path)
 
+    def get_dir_path(self):
+        root_path = os.path.join(get_root_path(), 'gans')
+        dir_path = os.path.join(root_path, self.name)
+        return dir_path
+
     def init_summary(self):
         current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
-        summary_dir = os.path.join(get_root_path(), 'gans/%s/runs/%s' % (self.name, self.dataset_name))
+        summary_dir = os.path.join(self.get_dir_path(), 'runs/%s' % self.dataset_name)
         if not os.path.exists(summary_dir):
             os.makedirs(summary_dir)
         summary_writer = SummaryWriter(os.path.join(summary_dir, current_time))
         return summary_writer
 
-    def summary_image(self, image, step, one_channel=False):
+    def summary_image(self, image, step, name, one_channel=False, debug=True):
+        image = image.detach()
+        if debug:
+            # show images
+            functions.matplotlib_imshow(image, one_channel=one_channel)
+        # write to tensorboard
+        self.writer.add_image(name, image.squeeze(0), global_step=step)
+
+    def summary_grid_image(self, image, step, one_channel=False):
         # create grid of images
         grid = torchvision.utils.make_grid(image.detach())
-        # show images
-        functions.matplotlib_imshow(grid, one_channel=one_channel)
-        # write to tensorboard
-        self.writer.add_image('gen_images', grid, global_step=step)
+        self.summary_image(image, step, 'gen_images', one_channel)
 
     def summary_graph(self, net, input):
         self.writer.add_graph(net, input)
