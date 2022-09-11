@@ -19,7 +19,7 @@ mutil = 1
 step_size = 2000 * mutil
 gamma = 0.1
 lambda_grad = 0.1  # gp权重
-alpha = 10  # 重建损失权重
+alpha = 1  # 重建损失权重
 
 num_iters = 4000 * mutil
 # 过程中定义

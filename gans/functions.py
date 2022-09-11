@@ -5,7 +5,7 @@
 # @File    : functions.py
 # @Software: PyCharm
 import math
-
+from PIL import Image
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -28,6 +28,23 @@ def matplotlib_imshow(img, one_channel=False, title=None):
         plt.title(title)
     plt.show()
 
+
+def denorm(img):
+    img = img / 2 + 0.5
+    return img
+
+
+def transpose_to_image(img):
+    img = img * 255
+    img = img.cpu().numpy()
+    img = img.astype(np.uint8)
+    img = np.transpose(img, (1, 2, 0))
+    return img
+
+
+def save_numpy_image(img, path):
+    im = Image.fromarray(img)
+    im.save(path)
 
 
 def imresize(image, h, w):

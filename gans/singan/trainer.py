@@ -8,6 +8,7 @@ import math
 import os.path
 import time
 
+import numpy as np
 import torch
 from torch.optim.lr_scheduler import StepLR
 from torchvision import transforms
@@ -18,6 +19,7 @@ from gans.base_trainer import BaseTrainer
 from gans.singan import args
 from gans.singan.datasets import Dataset, get_loader
 from gans.singan.singan import Generator, Discriminator
+from util.debug import array_detail
 
 
 class Trainer(BaseTrainer):
@@ -33,12 +35,11 @@ class Trainer(BaseTrainer):
         self.noise = None  # create noise pyramid
         self.num_filters = None  # 生成器和判别器所需的核数
         self.generators = None
-        self.discriminator = None
+        self.discriminators = None
         self.NoiseAmp = None
         self.Z_fixed = None
         self.noise_amp_init = None
         self.reconstruction = None
-        self.setup()
 
     def setup(self):
         # Initialize dataset
@@ -73,9 +74,12 @@ class Trainer(BaseTrainer):
         self.reconstruction = torch.nn.MSELoss()
 
     def train(self):
+        self.setup()
         self.Z_fixed = []
         self.NoiseAmp = []
         noise_amp = self.noise_amp_init  # 定义一个
+        # 固定的生成器输入，测试模型输出
+        fake = torch.zeros_like(self.reals[0], device=self.device)
         print("开始训练......")
         # iterate scales
         for scale in range(self.args.stop_scale + 1):
@@ -109,7 +113,7 @@ class Trainer(BaseTrainer):
             prev_rec = torch.zeros_like(real_img, device=self.device)
             if self.debug:
                 print("DEBUG模式......")
-                print("展示图片......")
+                print("展示当前尺度真实图片......")
                 functions.matplotlib_imshow(real_img,
                                             title=f'{scale}th resize {real_img.size(3)}*{real_img.size(2)} real image')
                 print("测试模型......")
@@ -123,32 +127,46 @@ class Trainer(BaseTrainer):
                 g_scheduler.step()
 
                 if step % 20 == 0:
-                    # print(f"z_fixed:{z_fixed}, prev_rec:{prev_rec}, noise_amp:{noise_amp}, metrics:{metrics}")
+                    # 重建的图片
                     fake = generator(prev_rec, z_fixed)
-                    self.summary_image(fake, scale * self.args.num_iters + step, f'{scale}th image', one_channel=False,
+                    self.summary_image(fake, scale * self.args.num_iters + step, f'{scale}th reconstruction image',
+                                       one_channel=False,
                                        debug=False)
                     # errD.item(), errG.item(), rec_loss.item()
                     self.writer.add_scalar(f"{scale}th errD", metrics[0], step)
                     self.writer.add_scalar(f"{scale}th errG", metrics[1], step)
                     self.writer.add_scalar(f"{scale}th rec_loss", metrics[2], step)
-
-                if step + 1 % 1000 == 0:
+                if (step + 1) % 1000 == 0:
                     self._save_model(scale, step, generator, discriminator)
                 if jump:
                     break
 
-            if self.debug:
-                functions.matplotlib_imshow(generator(prev_rec, z_fixed).detach())
             self.Z_fixed.append(z_fixed)
             self.NoiseAmp.append(noise_amp)
 
-            print(f'Time taken for scale {scale} is {time.perf_counter() - start:.2f} sec\n')
+            # 尺度训练完毕后，通过模型生成重建图像，假图像
+            reconstruction_img = generator(prev_rec, z_fixed)
+            fake = functions.imresize(fake, real_img.size(2), real_img.size(3))
+            z = torch.randn(fake.shape, device=self.device)
+            z = z * self.NoiseAmp[scale]
+            fake = generator(fake, z)
+            # save samples
+            self._save_scale_samples(scale, real_img, reconstruction_img, fake)
 
-        if config.DRY_RUN:
-            exit(0)
+            if self.debug:
+                functions.matplotlib_imshow(reconstruction_img.detach(),
+                                            title=f'{scale}th reconstruction image')
+                functions.matplotlib_imshow(fake.detach(), title=f'{scale}th fake image')
+            print(f'Time taken for scale {scale} is {time.perf_counter() - start:.2f} sec\n')
+        # save NoiseAmp
+        self._save_noise_amp()
         print("训练结束......")
 
     def train_step(self, real, prev_rec, noise_amp, scale, step, discriminator, generator, d_optimizer, g_optimizer):
+        """
+        生成器图像输入 上一尺度生成的图像以及，当前尺度的随机噪声
+
+        """
         z_rand = torch.randn(real.shape, device=self.device)
         if scale == 0:
             z_rec = torch.randn(real.shape, device=self.device)
@@ -224,6 +242,18 @@ class Trainer(BaseTrainer):
                     fake = functions.imresize(fake, self.reals[i + 1].size(2), self.reals[i + 1].size(3))
         return fake
 
+    def _save_scale_samples(self, scale, real, reconstruction, fake):
+        dir_path = '%s/sample/%s/' % (self.get_dir_path(), scale)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        self._save_sample(real, os.path.join(dir_path, 'real.png'))
+        self._save_sample(reconstruction, os.path.join(dir_path, 'reconstruction.png'))
+        self._save_sample(fake, os.path.join(dir_path, 'fake.png'))
+
+    def _save_sample(self, img, path):
+        img = functions.transpose_to_image(functions.denorm(img.detach().squeeze(0)))
+        functions.save_numpy_image(img, path)
+
     def _init_from_previous_model(self, scale, generator, discriminator):
         """ Initialize current model from the previous trained model """
         if self.num_filters[scale] == self.num_filters[scale - 1]:
@@ -241,6 +271,7 @@ class Trainer(BaseTrainer):
             return False
 
     def _save_model(self, scale, step, generator, discriminator):
+
         dir_path = '%s/checkpoint/%s/' % (self.get_dir_path(), scale)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
@@ -248,6 +279,19 @@ class Trainer(BaseTrainer):
                    '%s/checkpoint/%s/netG_step_%d.pth' % (self.get_dir_path(), scale, step))
         torch.save(discriminator.state_dict(),
                    '%s/checkpoint/%s/netD_step_%d.pth' % (self.get_dir_path(), scale, step))
+
+    def _save_noise_amp(self):
+        noise_amp = []
+        for i in self.NoiseAmp:
+            if isinstance(i, torch.Tensor):
+                i = i.detach().cpu().item()
+            noise_amp.append(i)
+        np.save('%s/checkpoint' % self.get_dir_path() + '/NoiseAmp', noise_amp)
+
+    def _load_noise_amp(self):
+        self.NoiseAmp = np.load('%s/checkpoint' % self.get_dir_path() + '/NoiseAmp.npy')
+        if self.debug:
+            print("加载 noise amp: ", self.NoiseAmp)
 
     def _build_model(self):
         """ Build initial model """
@@ -306,7 +350,42 @@ class Trainer(BaseTrainer):
 
         return reals
 
+    def random_samples(self):
+        self._load_noise_amp()
+        self.setup()
+        for scale in range(len(self.generators)):
+            self._load_model(scale, self.generators[scale], self.discriminators[scale])
+        z_fixed = torch.randn(self.reals[0].shape)
+        print(z_fixed.shape)
+        for n in range(1):
+            fake = self.generate(self.reals, z_fixed)
+            self._save_sample(fake, '%s/sample' % self.get_dir_path() + f'/random_sample_{n}.jpg')
+
+    def generate(self, reals, z_fixed, inject_scale=0):
+        """inject_scale The scale to start generating """
+        """ Use fixed noise to generate before start_scale """
+        fake = torch.zeros_like(reals[0], device=self.device)
+
+        for scale, generator in enumerate(self.generators):
+            fake = functions.imresize(fake, h=reals[scale].size(2), w=reals[scale].size(3))
+
+            if scale > 0:
+                z_fixed = torch.zeros_like(fake, device=self.device)
+
+            if scale < inject_scale:
+                z = z_fixed
+            else:
+                z = torch.randn(fake.shape, device=self.device)
+
+            z = z * self.NoiseAmp[scale]
+            fake = generator(fake, z)
+            functions.matplotlib_imshow(fake.detach())
+        return fake
+
 
 if __name__ == '__main__':
     trainer = Trainer()
-    trainer.train()
+    if config.MODE == 'train':
+        trainer.train()
+    elif config.MODE == 'random samples':
+        trainer.random_samples()
